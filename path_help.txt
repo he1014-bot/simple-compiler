@@ -1,0 +1,35 @@
+编译器文件路径填写指南
+================================
+
+当前工作目录：simple-compiler（包含所有.c文件的目录）
+
+可用的测试文件：
+- test_simple.c     - 简单示例
+- test2.c          - 包含if-else和while语句
+- test_for.c       - for循环示例  
+- test_full.c      - 完整功能测试
+- simple_test.c    - 最简单的测试
+
+正确填写方式：
+
+1. 相对路径（推荐）：
+   输入：test2.c
+   或：test_simple.c
+
+2. 绝对路径（完整）：
+   输入：D:\HuaweiMoveData\Users\heyua\Desktop\simple-compiler\simple-compiler\test2.c
+
+3. 常见错误：
+   - 错误：D:\HuaweiMoveData\Users\heyua\Desktop\simple-compiler\test2.c
+     （缺少一层simple-compiler目录）
+   
+   - 错误：test2.c.txt
+     （不要加.txt扩展名）
+
+4. 验证文件是否存在：
+   在PowerShell中运行：dir *.c
+   查看当前目录的所有.c文件
+
+5. 快速测试：
+   输入：simple_test.c
+   这是最简单的测试文件，确保能正常工作
