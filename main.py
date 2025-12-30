@@ -35,27 +35,30 @@ def compile_file(filename: str, output_dir: str = "output"):
     fixer = CodeFixer(source_code)
     fixed_code, fixes_applied, error_report = fixer.detect_and_fix_errors()
     
-    # Save original and fixed code
+    # Save original code
     original_file = os.path.join(output_dir, "original_code.c")
     with open(original_file, 'w', encoding='utf-8') as f:
         f.write(source_code)
     print(f"Original code saved to: {original_file}")
     
-    fixed_file = os.path.join(output_dir, "fixed_code.c")
-    fixer.save_fixed_code(fixed_file)
-    
-    # Save error report
-    error_report_file = os.path.join(output_dir, "code_fix_report.txt")
-    fixer.save_error_report(error_report_file)
-    
     fixer.print_summary()
     
-    # Use fixed code for compilation if fixes were applied
+    # Only save fixed code and error report if fixes were applied
     if fixes_applied:
         print("Using fixed code for compilation...")
+        
+        # Save fixed code
+        fixed_file = os.path.join(output_dir, "fixed_code.c")
+        fixer.save_fixed_code(fixed_file)
+        
+        # Save error report
+        error_report_file = os.path.join(output_dir, "code_fix_report.txt")
+        fixer.save_error_report(error_report_file)
+        
         source_code = fixed_code
     else:
         print("No fixes needed, using original code.")
+        # Don't create fixed_code.c or code_fix_report.txt files
     
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -251,8 +254,9 @@ def compile_file(filename: str, output_dir: str = "output"):
         f.write(f"  - Quadruples: {quad_file}\n")
         f.write(f"  - Assembly Code: {os.path.join(output_dir, 'assembly.asm')}\n")
         f.write(f"  - Original Code: {original_file}\n")
-        f.write(f"  - Fixed Code: {fixed_file}\n")
-        f.write(f"  - Code Fix Report: {error_report_file}\n")
+        if fixes_applied:
+            f.write(f"  - Fixed Code: {fixed_file}\n")
+            f.write(f"  - Code Fix Report: {error_report_file}\n")
         if lexer.errors:
             f.write(f"  - Lexical Errors: {os.path.join(output_dir, 'lexical_errors.txt')}\n")
         if parser.errors:
