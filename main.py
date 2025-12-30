@@ -10,6 +10,8 @@ import os
 from lexer import Lexer
 from parser import Parser, ASTNode
 from semantic import SemanticAnalyzer
+from codegen import CodeGenerator
+from code_fixer import CodeFixer
 
 def compile_file(filename: str, output_dir: str = "output"):
     """Compile source file"""
@@ -27,14 +29,59 @@ def compile_file(filename: str, output_dir: str = "output"):
         print(f"Error: Failed to read file - {e}")
         return False
     
+    # Code fixing phase (new)
+    print("\n0. Code Error Detection and Fixing")
+    print("-" * 40)
+    fixer = CodeFixer(source_code)
+    fixed_code, fixes_applied, error_report = fixer.detect_and_fix_errors()
+    
+    # Save original and fixed code
+    original_file = os.path.join(output_dir, "original_code.c")
+    with open(original_file, 'w', encoding='utf-8') as f:
+        f.write(source_code)
+    print(f"Original code saved to: {original_file}")
+    
+    fixed_file = os.path.join(output_dir, "fixed_code.c")
+    fixer.save_fixed_code(fixed_file)
+    
+    # Save error report
+    error_report_file = os.path.join(output_dir, "code_fix_report.txt")
+    fixer.save_error_report(error_report_file)
+    
+    fixer.print_summary()
+    
+    # Use fixed code for compilation if fixes were applied
+    if fixes_applied:
+        print("Using fixed code for compilation...")
+        source_code = fixed_code
+    else:
+        print("No fixes needed, using original code.")
+    
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
+    
+    # Track compilation success
+    compilation_success = True
     
     # Lexical analysis
     print("\n1. Lexical Analysis")
     print("-" * 40)
     lexer = Lexer(source_code)
     tokens = lexer.tokenize()
+    
+    # Always save tokens (even if there are errors)
+    lexer.print_tokens()
+    # Save token sequence to file
+    token_file = os.path.join(output_dir, "tokens.txt")
+    with open(token_file, 'w', encoding='utf-8') as f:
+        f.write("Lexical Analysis Result:\n")
+        f.write("=" * 60 + "\n")
+        for i, token in enumerate(lexer.tokens):
+            if token.type.value != 99:  # Not EOF
+                f.write(f"{i:3d}: {token}\n")
+        f.write(f"{len(lexer.tokens):3d}: (99, EOF)\n")
+        f.write("=" * 60 + "\n")
+    print(f"Token sequence saved to: {token_file}")
     
     if lexer.errors:
         lexer.print_errors()
@@ -45,20 +92,8 @@ def compile_file(filename: str, output_dir: str = "output"):
             for error in lexer.errors:
                 f.write(f"  - {error}\n")
         print(f"Lexical analysis errors saved to: {error_file}")
-        return False
-    else:
-        lexer.print_tokens()
-        # Save token sequence to file
-        token_file = os.path.join(output_dir, "tokens.txt")
-        with open(token_file, 'w', encoding='utf-8') as f:
-            f.write("Lexical Analysis Result:\n")
-            f.write("=" * 60 + "\n")
-            for i, token in enumerate(lexer.tokens):
-                if token.type.value != 99:  # Not EOF
-                    f.write(f"{i:3d}: {token}\n")
-            f.write(f"{len(lexer.tokens):3d}: (99, EOF)\n")
-            f.write("=" * 60 + "\n")
-        print(f"Token sequence saved to: {token_file}")
+        compilation_success = False
+        # Don't return here - continue to try syntax analysis if possible
     
     # Syntax analysis
     print("\n2. Syntax Analysis")
@@ -66,17 +101,8 @@ def compile_file(filename: str, output_dir: str = "output"):
     parser = Parser(tokens)
     ast = parser.parse()
     
-    if parser.errors:
-        parser.print_errors()
-        # Save errors to file
-        error_file = os.path.join(output_dir, "syntax_errors.txt")
-        with open(error_file, 'w', encoding='utf-8') as f:
-            f.write("Syntax Analysis Errors:\n")
-            for error in parser.errors:
-                f.write(f"  - {error}\n")
-        print(f"Syntax analysis errors saved to: {error_file}")
-        return False
-    else:
+    # Always try to save AST (even if there are errors)
+    if ast:
         parser.print_ast()
         # Save syntax tree to file
         ast_file = os.path.join(output_dir, "ast.txt")
@@ -97,16 +123,96 @@ def compile_file(filename: str, output_dir: str = "output"):
             write_ast_node(ast)
             f.write("=" * 60 + "\n")
         print(f"Syntax tree saved to: {ast_file}")
+    else:
+        # Create empty AST file
+        ast_file = os.path.join(output_dir, "ast.txt")
+        with open(ast_file, 'w', encoding='utf-8') as f:
+            f.write("Abstract Syntax Tree:\n")
+            f.write("=" * 60 + "\n")
+            f.write("No AST generated due to errors\n")
+            f.write("=" * 60 + "\n")
+        print(f"Empty AST file created: {ast_file}")
+    
+    if parser.errors:
+        parser.print_errors()
+        # Save errors to file
+        error_file = os.path.join(output_dir, "syntax_errors.txt")
+        with open(error_file, 'w', encoding='utf-8') as f:
+            f.write("Syntax Analysis Errors:\n")
+            for error in parser.errors:
+                f.write(f"  - {error}\n")
+        print(f"Syntax analysis errors saved to: {error_file}")
+        compilation_success = False
+        # Don't return here - continue to try semantic analysis if possible
     
     # Semantic analysis and intermediate code generation
     print("\n3. Semantic Analysis and Intermediate Code Generation")
     print("-" * 40)
     analyzer = SemanticAnalyzer()
-    success = analyzer.analyze(ast)
+    semantic_success = analyzer.analyze(ast) if ast else False
     
     analyzer.print_errors()
     
-    if not success:
+    # Always try to save symbol table and quadruples (even if there are errors)
+    analyzer.symbol_table.print_table()
+    analyzer.print_quadruples()
+    
+    # Save symbol table to file
+    symbol_file = os.path.join(output_dir, "symbol_table.txt")
+    with open(symbol_file, 'w', encoding='utf-8') as f:
+        f.write("Symbol Table:\n")
+        f.write("=" * 60 + "\n")
+        f.write(f"{'Name':<10} {'Type':<10} {'Attributes':<20}\n")
+        f.write("-" * 60 + "\n")
+        for name, info in analyzer.symbol_table.symbols.items():
+            attrs = ", ".join(f"{k}={v}" for k, v in info.items() if k not in ["name", "type"])
+            f.write(f"{name:<10} {info['type']:<10} {attrs:<20}\n")
+        f.write("=" * 60 + "\n")
+    print(f"Symbol table saved to: {symbol_file}")
+    
+    # Save quadruples to file
+    quad_file = os.path.join(output_dir, "quadruples.txt")
+    with open(quad_file, 'w', encoding='utf-8') as f:
+        f.write("Quadruple Intermediate Code:\n")
+        f.write("=" * 60 + "\n")
+        for i, quad in enumerate(analyzer.quadruples):
+            f.write(f"{i:3d}: {quad}\n")
+        f.write("=" * 60 + "\n")
+    print(f"Quadruples saved to: {quad_file}")
+    
+    # Code generation (x86-64 assembly)
+    print("\n4. Code Generation (x86-64 Assembly)")
+    print("-" * 40)
+    
+    if analyzer.quadruples and analyzer.symbol_table.symbols:
+        try:
+            generator = CodeGenerator(analyzer.quadruples, analyzer.symbol_table.symbols)
+            assembly_code = generator.generate()
+            
+            # Save assembly code to file
+            asm_file = os.path.join(output_dir, "assembly.asm")
+            generator.save_assembly(asm_file)
+            print(f"Assembly code saved to: {asm_file}")
+            
+            # Also print assembly code
+            generator.print_assembly()
+            
+        except Exception as e:
+            print(f"Error during code generation: {e}")
+            # Create empty assembly file
+            asm_file = os.path.join(output_dir, "assembly.asm")
+            with open(asm_file, 'w', encoding='utf-8') as f:
+                f.write("; Assembly code generation failed\n")
+                f.write(f"; Error: {e}\n")
+            print(f"Empty assembly file created: {asm_file}")
+    else:
+        # Create empty assembly file
+        asm_file = os.path.join(output_dir, "assembly.asm")
+        with open(asm_file, 'w', encoding='utf-8') as f:
+            f.write("; No assembly code generated (no quadruples or symbol table)\n")
+        print(f"Empty assembly file created: {asm_file}")
+    
+    if analyzer.errors:
         # Save errors to file
         error_file = os.path.join(output_dir, "semantic_errors.txt")
         with open(error_file, 'w', encoding='utf-8') as f:
@@ -114,62 +220,51 @@ def compile_file(filename: str, output_dir: str = "output"):
             for error in analyzer.errors:
                 f.write(f"  - {error}\n")
         print(f"Semantic analysis errors saved to: {error_file}")
-        return False
-    else:
-        analyzer.symbol_table.print_table()
-        analyzer.print_quadruples()
-        
-        # Save symbol table to file
-        symbol_file = os.path.join(output_dir, "symbol_table.txt")
-        with open(symbol_file, 'w', encoding='utf-8') as f:
-            f.write("Symbol Table:\n")
-            f.write("=" * 60 + "\n")
-            f.write(f"{'Name':<10} {'Type':<10} {'Attributes':<20}\n")
-            f.write("-" * 60 + "\n")
-            for name, info in analyzer.symbol_table.symbols.items():
-                attrs = ", ".join(f"{k}={v}" for k, v in info.items() if k not in ["name", "type"])
-                f.write(f"{name:<10} {info['type']:<10} {attrs:<20}\n")
-            f.write("=" * 60 + "\n")
-        print(f"Symbol table saved to: {symbol_file}")
-        
-        # Save quadruples to file
-        quad_file = os.path.join(output_dir, "quadruples.txt")
-        with open(quad_file, 'w', encoding='utf-8') as f:
-            f.write("Quadruple Intermediate Code:\n")
-            f.write("=" * 60 + "\n")
-            for i, quad in enumerate(analyzer.quadruples):
-                f.write(f"{i:3d}: {quad}\n")
-            f.write("=" * 60 + "\n")
-        print(f"Quadruples saved to: {quad_file}")
-        
-        # Generate summary report
-        report_file = os.path.join(output_dir, "compile_report.txt")
-        with open(report_file, 'w', encoding='utf-8') as f:
-            f.write("Compiler Execution Report\n")
-            f.write("=" * 60 + "\n")
-            f.write(f"Source File: {filename}\n")
-            f.write(f"Compilation Time: {os.path.getctime(filename)}\n")
-            f.write("\n")
-            f.write("Compilation Result: Success\n")
-            f.write("\n")
-            f.write("Statistics:\n")
-            f.write(f"  - Token Count: {len(tokens)}\n")
-            f.write(f"  - Symbol Table Entries: {len(analyzer.symbol_table.symbols)}\n")
-            f.write(f"  - Quadruple Count: {len(analyzer.quadruples)}\n")
-            f.write(f"  - Temporary Variable Count: {analyzer.symbol_table.next_temp - 1}\n")
-            f.write(f"  - Label Count: {analyzer.next_label - 1}\n")
-            f.write("\n")
-            f.write("Output Files:\n")
-            f.write(f"  - Token Sequence: {token_file}\n")
-            f.write(f"  - Syntax Tree: {ast_file}\n")
-            f.write(f"  - Symbol Table: {symbol_file}\n")
-            f.write(f"  - Quadruples: {quad_file}\n")
-            f.write("=" * 60 + "\n")
-        print(f"Compilation report saved to: {report_file}")
+        compilation_success = False
+    
+    # Generate summary report (always, regardless of errors)
+    report_file = os.path.join(output_dir, "compile_report.txt")
+    with open(report_file, 'w', encoding='utf-8') as f:
+        f.write("Compiler Execution Report\n")
+        f.write("=" * 60 + "\n")
+        f.write(f"Source File: {filename}\n")
+        f.write(f"Compilation Time: {os.path.getctime(filename)}\n")
+        f.write("\n")
+        f.write(f"Compilation Result: {'Success' if compilation_success else 'Failed with errors'}\n")
+        f.write("\n")
+        f.write("Statistics:\n")
+        f.write(f"  - Token Count: {len(tokens)}\n")
+        f.write(f"  - Symbol Table Entries: {len(analyzer.symbol_table.symbols)}\n")
+        f.write(f"  - Quadruple Count: {len(analyzer.quadruples)}\n")
+        f.write(f"  - Temporary Variable Count: {analyzer.symbol_table.next_temp - 1}\n")
+        f.write(f"  - Label Count: {analyzer.next_label - 1}\n")
+        f.write("\n")
+        f.write("Error Summary:\n")
+        f.write(f"  - Lexical Errors: {len(lexer.errors) if lexer.errors else 0}\n")
+        f.write(f"  - Syntax Errors: {len(parser.errors) if parser.errors else 0}\n")
+        f.write(f"  - Semantic Errors: {len(analyzer.errors) if analyzer.errors else 0}\n")
+        f.write("\n")
+        f.write("Output Files:\n")
+        f.write(f"  - Token Sequence: {token_file}\n")
+        f.write(f"  - Syntax Tree: {ast_file}\n")
+        f.write(f"  - Symbol Table: {symbol_file}\n")
+        f.write(f"  - Quadruples: {quad_file}\n")
+        f.write(f"  - Assembly Code: {os.path.join(output_dir, 'assembly.asm')}\n")
+        f.write(f"  - Original Code: {original_file}\n")
+        f.write(f"  - Fixed Code: {fixed_file}\n")
+        f.write(f"  - Code Fix Report: {error_report_file}\n")
+        if lexer.errors:
+            f.write(f"  - Lexical Errors: {os.path.join(output_dir, 'lexical_errors.txt')}\n")
+        if parser.errors:
+            f.write(f"  - Syntax Errors: {os.path.join(output_dir, 'syntax_errors.txt')}\n")
+        if analyzer.errors:
+            f.write(f"  - Semantic Errors: {os.path.join(output_dir, 'semantic_errors.txt')}\n")
+        f.write("=" * 60 + "\n")
+    print(f"Compilation report saved to: {report_file}")
     
     print("\n" + "=" * 60)
-    print("Compilation Completed!")
-    return True
+    print(f"Compilation {'Completed Successfully!' if compilation_success else 'Completed with Errors!'}")
+    return compilation_success
 
 def interactive_mode():
     """Interactive Mode"""
@@ -288,6 +383,10 @@ def interactive_mode():
             print("   - ast.txt: Abstract Syntax Tree")
             print("   - symbol_table.txt: Symbol Table")
             print("   - quadruples.txt: Quadruple Intermediate Code")
+            print("   - assembly.asm: x86-64 Assembly Code")
+            print("   - original_code.c: Original Source Code")
+            print("   - fixed_code.c: Fixed Source Code")
+            print("   - code_fix_report.txt: Code Fix Report")
             print("   - compile_report.txt: Compilation Report")
             print("=" * 60)
         

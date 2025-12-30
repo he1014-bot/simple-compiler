@@ -1,0 +1,169 @@
+Simple Compiler v1.0
+============================================================
+Compiling file: test_error_complex.c
+============================================================
+
+0. Code Error Detection and Fixing
+----------------------------------------
+Original code saved to: output\original_code.c
+Fixed code saved to: output\fixed_code.c
+Error report saved to: output\code_fix_report.txt
+Code Fixer Summary:
+============================================================
+Applied 10 fixes:
+  - Added missing semicolon at line 3
+  - Added missing semicolon at line 4
+  - Added missing semicolon at line 5
+  - Added missing semicolon at line 8
+  - Added missing semicolon at line 11
+  - Added missing semicolon at line 12
+  - Fixed keyword typo: \bmaim\b -> main
+  - Fixed keyword typo: \bitn\b -> int
+  - Fixed keyword typo: \biff\b -> if
+  - Fixed keyword typo: \bwhiel\b -> while
+============================================================
+Using fixed code for compilation...
+
+1. Lexical Analysis
+----------------------------------------
+Lexical analysis result:
+============================================================
+  0: (1, main)
+  1: (41, ()
+  2: (42, ))
+  3: (43, {)
+  4: (2, int)
+  5: (10, a)
+  6: (10, b)
+  7: (10, c)
+  8: (10, a)
+  9: (25, =)
+ 10: (11, 10)
+ 11: (10, b)
+ 12: (25, =)
+ 13: (11, 20)
+ 14: (45, ;)
+ 15: (10, c)
+ 16: (25, =)
+ 17: (10, a)
+ 18: (21, +)
+ 19: (10, b)
+ 20: (45, ;)
+ 21: (3, if)
+ 22: (41, ()
+ 23: (10, c)
+ 24: (26, >)
+ 25: (11, 25)
+ 26: (10, a)
+ 27: (25, =)
+ 28: (11, 0)
+ 29: (45, ;)
+ 30: (5, while)
+ 31: (41, ()
+ 32: (10, a)
+ 33: (27, <)
+ 34: (10, c)
+ 35: (10, a)
+ 36: (25, =)
+ 37: (10, a)
+ 38: (21, +)
+ 39: (11, 1)
+ 40: (45, ;)
+ 41: (10, b)
+ 42: (25, =)
+ 43: (10, b)
+ 44: (22, -)
+ 45: (11, 1)
+ 47: (99, EOF)
+============================================================
+Token sequence saved to: output\tokens.txt
+
+2. Syntax Analysis
+----------------------------------------
+Abstract Syntax Tree:
+============================================================
+Program:
+  StatementSequence:
+    AssignmentStatement:
+      Identifier [b]
+    AssignmentStatement:
+      Identifier [c]
+    AssignmentStatement:
+      AssignmentExpression:
+        Identifier [a]
+        Number [10]
+    AssignmentStatement:
+      AssignmentExpression:
+        Identifier [b]
+        Number [20]
+    AssignmentStatement:
+      AssignmentExpression:
+        Identifier [c]
+        ArithmeticExpression:
+          Identifier [a]
+          Operator [+]
+          Identifier [b]
+    IfStatement:
+      BooleanExpression:
+        Identifier [c]
+        RelationalOperator [>]
+        Number [25]
+    AssignmentStatement:
+      AssignmentExpression:
+        Identifier [a]
+        Number [0]
+    WhileStatement:
+      BooleanExpression:
+        Identifier [a]
+        RelationalOperator [<]
+        Identifier [c]
+    AssignmentStatement:
+      AssignmentExpression:
+        Identifier [a]
+        ArithmeticExpression:
+          Identifier [a]
+          Operator [+]
+          Number [1]
+    AssignmentStatement:
+      AssignmentExpression:
+        Identifier [b]
+        ArithmeticExpression:
+          Identifier [b]
+          Operator [-]
+          Number [1]
+============================================================
+Syntax tree saved to: output\ast.txt
+Syntax analysis errors:
+  - Syntax error at line 2: Expected ';' after declaration
+  - Syntax error at line 2: Expected ';' after assignment
+  - Syntax error at line 3: Expected ';' after assignment
+  - Syntax error at line 4: Expected ';' after assignment
+  - Syntax error at line 8: Expected ')' after expression
+  - Syntax error at line 11: Expected ')' after expression
+  - Syntax error at line 15: Expected ';' after assignment
+  - Syntax error at line 15: Expected '}' at end of program
+Syntax analysis errors saved to: output\syntax_errors.txt
+
+3. Semantic Analysis and Intermediate Code Generation
+----------------------------------------
+Semantic analysis errors:
+  - Semantic error: Assignment statement missing expression
+Symbol Table:
+============================================================
+Name       Type       Attributes          
+------------------------------------------------------------
+============================================================
+Quadruple Intermediate Code:
+============================================================
+============================================================
+Symbol table saved to: output\symbol_table.txt
+Quadruples saved to: output\quadruples.txt
+
+4. Code Generation (x86-64 Assembly)
+----------------------------------------
+Empty assembly file created: output\assembly.asm
+Semantic analysis errors saved to: output\semantic_errors.txt
+Compilation report saved to: output\compile_report.txt
+
+============================================================
+Compilation Completed with Errors!
